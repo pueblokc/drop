@@ -14,8 +14,8 @@ jobs:
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: ffmpeg
@@ -32,7 +32,7 @@ jobs:
   server-install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install.sh
         run: sudo DROP_TITLE="CI Drops" ./server/install.sh
       - name: ingest + serve
@@ -64,7 +64,7 @@ jobs:
           sudo ./server/install.sh
           test "$(sudo drop-ingest list | wc -l)" = "2"
           curl -fsS http://127.0.0.1:8080/index.json | grep -q '"CI Drops"'
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: client over SSH, end to end
