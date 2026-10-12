@@ -42,14 +42,23 @@ jobs:
           printf '<script>document.title="x"</script>' > /tmp/report.html
           sudo drop-ingest add /tmp/ci.png --title "CI image" --tag ci
           sudo drop-ingest add /tmp/report.html --title "CI report"
+          python3 -c "from PIL import Image; Image.new('RGB',(200,280),(30,30,46)).save('/tmp/ci.pdf')"
+          sudo drop-ingest add /tmp/ci.pdf --title "CI pdf"
           drop-ingest --version
-          curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; j=json.load(sys.stdin); assert j['title']=='CI Drops' and len(j['items'])==2, j; print('index ok')"
+          curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; j=json.load(sys.stdin); assert j['title']=='CI Drops' and len(j['items'])==3, j; print('index ok')"
+          PDF=$(curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; i=[i for i in json.load(sys.stdin)['items'] if i['kind']=='pdf'][0]; print('i/%s/%s' % (i['id'], i['file']))")
+          P=$(curl -fsSI "http://127.0.0.1:8080/$PDF")
+          echo "$P"
+          if echo "$P" | grep -qi 'sandbox'; then echo "PDF must not be sandboxed"; exit 1; fi
+          echo "$P" | grep -qi "^content-security-policy: frame-ancestors 'self'"
+          echo "$P" | grep -qi '^cache-control: public, max-age=31536000, immutable'
           ID=$(curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; print([i['id'] for i in json.load(sys.stdin)['items'] if i['kind']=='html'][0])")
           FILE=$(curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; print([i['file'] for i in json.load(sys.stdin)['items'] if i['kind']=='html'][0])")
           H=$(curl -fsSI "http://127.0.0.1:8080/i/$ID/$FILE")
           echo "$H"
           echo "$H" | grep -qi '^content-security-policy: sandbox'
           echo "$H" | grep -qi '^x-robots-tag: noindex'
+          echo "$H" | grep -qi '^cache-control: public, max-age=31536000, immutable'
           curl -fsSI http://127.0.0.1:8080/ | grep -qi '^x-robots-tag: noindex'
           curl -fsS -o /dev/null "http://127.0.0.1:8080/i/$ID/thumb.jpg"
           for P in "i/" "i/$ID/" "i/$ID/meta.json.tmp" ".env"; do
@@ -62,7 +71,7 @@ jobs:
       - name: re-run keeps items and title
         run: |
           sudo ./server/install.sh
-          test "$(sudo drop-ingest list | wc -l)" = "2"
+          test "$(sudo drop-ingest list | wc -l)" = "3"
           curl -fsS http://127.0.0.1:8080/index.json | grep -q '"CI Drops"'
       - uses: actions/setup-python@v7
         with:

@@ -13,9 +13,11 @@ Don't bind it to `0.0.0.0`, don't port-forward it, and don't use `tailscale funn
   for a password. Host keys are trusted on first use, or set `host_keys = "strict"` to only
   accept hosts already in `known_hosts`.
 - **Nothing is deleted.** `drop-ingest rm` moves items to `$DROP_ROOT/trash`.
-- **Uploaded HTML can't attack the gallery.** Everything under `/i/` is served with
-  `Content-Security-Policy: sandbox`, which gives it an opaque origin. Reports can run their
-  own scripts but can't read the gallery, its index or your session.
+- **Uploaded HTML can't attack the gallery.** Files that can run script (`.html`, `.svg`, `.xml`)
+  are served with `Content-Security-Policy: sandbox`, which gives them an opaque origin. Reports
+  can run their own scripts but can't read the gallery, its index or your session. PDFs and media
+  aren't sandboxed, so the browser's built-in viewers keep working. Everything under `/i/` can
+  only be framed by the gallery itself (`frame-ancestors 'self'`).
 - **Input checks.** Stored file names are reduced to a base name (no `../`), and item ids must be
   10 hex characters before any file operation.
 - **Secrets stay out of output.** Config values can come from `env:VAR` or `cmd:<command>`
