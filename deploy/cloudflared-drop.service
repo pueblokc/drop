@@ -1,0 +1,21 @@
+# Cloudflare Tunnel for Drop, with the token kept in a root-only env file.
+#
+#   sudo install -d -m 700 /etc/cloudflared
+#   echo 'TUNNEL_TOKEN=<token from the Zero Trust dashboard>' | sudo tee /etc/cloudflared/drop.env >/dev/null
+#   sudo chmod 600 /etc/cloudflared/drop.env
+#   sudo cp cloudflared-drop.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now cloudflared-drop
+[Unit]
+Description=Cloudflare Tunnel (Drop)
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/cloudflared/drop.env
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate tunnel run
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+# Drop client config. Docs: https://github.com/pueblokc/drop
+
+[gallery]
+url = "https://drop.example.com"      # where you open the gallery (used to build links)
+mode = "ssh"                          # "ssh" = upload to a server, "local" = drop-ingest on this machine
+
+[ssh]
+host = "drop.example.lan"             # the Drop server
+user = "drop"
+port = 22
+key = "~/.ssh/id_ed25519"             # key auth only; no password prompts
+jump = ""                             # optional bastion, e.g. "root@bastion.example.com:22"
+host_keys = "accept-new"              # "accept-new" (trust on first use) or "strict" (known_hosts only)
+remote_inbox = "/srv/drop/inbox"
+ingest = "drop-ingest"
+
+[mirror]
+rclone_remote = ""                    # e.g. "gdrive:Drops" -> also copied to gdrive:Drops/YYYY-MM/
+public_link = false                   # true runs `rclone link`, which creates a PUBLIC share link
+
+[notify]
+sender = "Drop"                       # "Leo dropped 2 files"
+telegram_token = ""                   # e.g. "env:DROP_TELEGRAM_TOKEN"
+telegram_chat = ""                    # e.g. "env:DROP_TELEGRAM_CHAT"
+ntfy_url = ""                         # e.g. "https://ntfy.sh/<long-random-topic>"
+webhook_url = ""                      # POSTs JSON {"text": ..., "items": [...]}

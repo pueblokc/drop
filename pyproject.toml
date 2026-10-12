@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kccs-drop"
+version = "1.0.0"
+description = "Drop: the outbox for your AI assistant. One command sends a file to a private, phone-friendly gallery."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "KCCS", email = "info@kccsonline.com" }]
+requires-python = ">=3.10"
+dependencies = ["paramiko>=3.0", "tomli>=1.1; python_version < '3.11'"]
+keywords = ["gallery", "self-hosted", "ai-assistant", "file-sharing", "claude-code", "cli"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Topic :: Multimedia",
+]
+
+[project.urls]
+Homepage = "https://github.com/pueblokc/drop"
+Issues = "https://github.com/pueblokc/drop/issues"
+KCCS = "https://kccsonline.com"
+
+[project.scripts]
+drop = "drop:main"
+
+[tool.setuptools]
+package-dir = { "" = "client" }
+py-modules = ["drop"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

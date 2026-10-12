@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: deps
+        run: pip install pillow pytest flake8 .
+      - name: lint
+        run: flake8 --max-line-length=120 client server tests demo
+      - name: tests
+        run: pytest -q
+      - name: cli
+        run: drop --version && drop --help >/dev/null
+
+  server-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.sh
+        run: sudo DROP_TITLE="CI Drops" ./server/install.sh
+      - name: ingest + serve
+        run: |
+          set -euo pipefail
+          python3 -c "from PIL import Image; Image.new('RGB',(320,200),(30,30,46)).save('/tmp/ci.png')"
+          printf '<script>document.title="x"</script>' > /tmp/report.html
+          sudo drop-ingest add /tmp/ci.png --title "CI image" --tag ci
+          sudo drop-ingest add /tmp/report.html --title "CI report"
+          drop-ingest --version
+          curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; j=json.load(sys.stdin); assert j['title']=='CI Drops' and len(j['items'])==2, j; print('index ok')"
+          ID=$(curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; print([i['id'] for i in json.load(sys.stdin)['items'] if i['kind']=='html'][0])")
+          FILE=$(curl -fsS http://127.0.0.1:8080/index.json | python3 -c "import json,sys; print([i['file'] for i in json.load(sys.stdin)['items'] if i['kind']=='html'][0])")
+          H=$(curl -fsSI "http://127.0.0.1:8080/i/$ID/$FILE")
+          echo "$H"
+          echo "$H" | grep -qi '^content-security-policy: sandbox'
+          echo "$H" | grep -qi '^x-robots-tag: noindex'
+          curl -fsSI http://127.0.0.1:8080/ | grep -qi '^x-robots-tag: noindex'
+          curl -fsS -o /dev/null "http://127.0.0.1:8080/i/$ID/thumb.jpg"
+          for P in "i/" "i/$ID/" "i/$ID/meta.json.tmp" ".env"; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080/$P")
+            echo "/$P -> $CODE"; [ "$CODE" = "404" ] || [ "$CODE" = "403" ]
+          done
+          IP=$(hostname -I | awk '{print $1}')
+          if curl -s --max-time 3 "http://$IP:8080/" >/dev/null; then echo "listening beyond loopback!"; exit 1; fi
+          echo "server ok"
+      - name: re-run keeps items and title
+        run: |
+          sudo ./server/install.sh
+          test "$(sudo drop-ingest list | wc -l)" = "2"
+          curl -fsS http://127.0.0.1:8080/index.json | grep -q '"CI Drops"'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: client over SSH, end to end
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq openssh-server >/dev/null
+          sudo systemctl start ssh
+          sudo adduser --disabled-password --gecos "" drop >/dev/null
+          sudo chown -R drop: /srv/drop
+          mkdir -p ~/.ssh && ssh-keygen -t ed25519 -N "" -f ~/.ssh/drop_ci -q
+          sudo install -d -m 700 -o drop -g drop /home/drop/.ssh
+          sudo install -m 600 -o drop -g drop ~/.ssh/drop_ci.pub /home/drop/.ssh/authorized_keys
+          pip install -q . pillow
+          printf '[gallery]\nurl = "https://drop.example.com"\nmode = "ssh"\n[ssh]\nhost = "127.0.0.1"\nuser = "drop"\nkey = "%s"\n' "$HOME/.ssh/drop_ci" > /tmp/drop.toml
+          python3 -c "from PIL import Image; Image.new('RGB',(200,120),(49,50,68)).save('/tmp/e2e.png')"
+          drop /tmp/e2e.png --title "Over SSH" --tag ssh --json --no-notify --config /tmp/drop.toml | tee /tmp/out.json
+          python3 -c "import json; r=json.load(open('/tmp/out.json'))['results'][0]; assert r['error'] is None and r['link'].startswith('https://drop.example.com/#'), r; print('ssh drop ok', r['id'])"
+          curl -fsS http://127.0.0.1:8080/index.json | grep -q '"Over SSH"'
+          test -z "$(sudo ls -A /srv/drop/inbox)"   # upload was consumed by --move
+          drop /tmp/e2e.png --json --no-notify --config /tmp/drop.toml | grep -q '"error": null'   # duplicate is fine
